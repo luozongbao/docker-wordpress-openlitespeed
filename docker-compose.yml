@@ -15,8 +15,8 @@ services:
       - ./www:/var/www/vhosts/localhost/html
       - ./logs:/usr/local/lsws/logs
       # # Persist OLS config + admin htpasswd so settings survive container recreate
-      # - ls_conf:/usr/local/lsws/conf
-      # - admin_conf:/usr/local/lsws/admin/conf 
+      - ls_conf:/usr/local/lsws/conf
+      - admin_conf:/usr/local/lsws/admin/conf 
     command: >
       sh -c 'HASH=$$(openssl passwd -1 "$${ADMIN_PASSWORD}"); printf "$${ADMIN_USER}:$${HASH}\n" > /usr/local/lsws/admin/conf/htpasswd && chown lsadm:lsadm /usr/local/lsws/admin/conf/htpasswd && chmod 600 /usr/local/lsws/admin/conf/htpasswd && /entrypoint.sh'
     depends_on:
@@ -45,5 +45,5 @@ networks:
 
 volumes:
   db_data:
-  # ls_conf:
-  # admin_conf:
+  ls_conf:
+  admin_conf:
