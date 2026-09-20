@@ -1,19 +1,4 @@
 services:
-  # MariaDB — uses the existing production volume so no data is lost.
-  database:
-    image: mariadb:10.11
-    container_name: wp_mariadb
-    restart: unless-stopped
-    environment:
-      - MYSQL_DATABASE=${DATABASENAME}
-      - MYSQL_USER=${DATABASEUSER}
-      - MYSQL_PASSWORD=${DATABASEPASS}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
-    volumes:
-      - db_data:/var/lib/mysql
-    networks:
-      - app-network
-
   wordpress:
     image: litespeedtech/openlitespeed:latest
     container_name: wp_ols
@@ -29,14 +14,28 @@ services:
     volumes:
       - ./www:/var/www/vhosts/localhost/html
       - ./logs:/usr/local/lsws/logs
-      # Persist OLS config + admin htpasswd so settings survive container recreate
-      - ./lsws/conf:/usr/local/lsws/conf
-      - ./lsws/admin-conf:/usr/local/lsws/admin/conf
-# เพิ่มคำสั่งนี้เพื่อเซ็ตรหัสผ่านก่อนแล้วค่อยเริ่มรัน entrypoint ปกติ
+      # # Persist OLS config + admin htpasswd so settings survive container recreate
+      - ls_conf:/usr/local/lsws/conf
+      - admin_conf:/usr/local/lsws/admin/conf 
     command: >
-      sh -c 'if [ ! -f /usr/local/lsws/admin/conf/htpasswd ]; then echo "$${ADMIN_USER}:$(openssl passwd -1 "$${ADMIN_PASSWORD}")" > /usr/local/lsws/admin/conf/htpasswd; fi && chmod 600 /usr/local/lsws/admin/conf/htpasswd && /entrypoint.sh'
+      sh -c 'HASH=$$(openssl passwd -1 "$${ADMIN_PASSWORD}"); printf "$${ADMIN_USER}:$${HASH}\n" > /usr/local/lsws/admin/conf/htpasswd && chown lsadm:lsadm /usr/local/lsws/admin/conf/htpasswd && chmod 600 /usr/local/lsws/admin/conf/htpasswd && /entrypoint.sh'
     depends_on:
       - database
+    networks:
+      - app-network
+
+  # MariaDB — uses the existing production volume so no data is lost.
+  database:
+    image: mariadb:10.11
+    container_name: wp_mariadb
+    restart: unless-stopped
+    environment:
+      - MYSQL_DATABASE=${DATABASENAME}
+      - MYSQL_USER=${DATABASEUSER}
+      - MYSQL_PASSWORD=${DATABASEPASS}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
+    volumes:
+      - db_data:/var/lib/mysql
     networks:
       - app-network
 
@@ -47,3 +46,4 @@ networks:
 volumes:
   db_data:
   ls_conf:
+  admin_conf:

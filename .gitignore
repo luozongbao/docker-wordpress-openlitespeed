@@ -10,12 +10,6 @@ logs/*
 database/*
 !database/.gitkeep
 
-# OLS config files
-lsws/conf/*
-lsws/admin-conf/*
-!lsws/conf/.gitkeep
-!lsws/admin-conf/.gitkeep
-
 # Secrets / local config
 .env
 *.bak
