@@ -1,7 +1,7 @@
 services:
   wordpress:
     image: litespeedtech/openlitespeed:latest
-    container_name: wp_ols
+    container_name: ${COMPOSE_PROJECT_NAME:-wp_ols}_app
     restart: unless-stopped
     ports:
       - "80:80"
@@ -27,7 +27,7 @@ services:
   # MariaDB — uses the existing production volume so no data is lost.
   database:
     image: mariadb:10.11
-    container_name: wp_mariadb
+    container_name: ${COMPOSE_PROJECT_NAME:-wp_ols}_db
     restart: unless-stopped
     environment:
       - MYSQL_DATABASE=${DATABASENAME}
@@ -41,9 +41,13 @@ services:
 
 networks:
   app-network:
+    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_network
     driver: bridge
 
 volumes:
   db_data:
+    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_db_data
   ls_conf:
+    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_ls_conf
   admin_conf:
+    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_admin_conf
