@@ -36,8 +36,9 @@ Other benefits:
 | `database`   | `mariadb:10.11`                | MariaDB — attaches to an external named volume  |
 
 Both services share a user-defined bridge network (named
-`<project-directory>_app-network` by default — Docker Compose's standard
-naming convention).
+`<COMPOSE_PROJECT_NAME>_network` by default — see
+[Running multiple stacks on one host](#running-multiple-stacks-on-one-host)
+for how to customize this).
 
 ---
 
@@ -73,8 +74,8 @@ naming convention).
 - An existing MariaDB Docker named volume (or a SQL dump to bootstrap one)
 
 > **Important:** the MariaDB data is held in an **external** Docker volume
-> (named `<project-directory>_db_data` by default). This repo never creates or
-> destroys it — your data outlives the stack itself.
+> (named `${COMPOSE_PROJECT_NAME:-wp_ols}_db_data` by default). This repo
+> never creates or destroys it — your data outlives the stack itself.
 
 ---
 
@@ -91,6 +92,7 @@ naming convention).
 
    | Variable              | Description                                |
    | --------------------- | ------------------------------------------ |
+   | `COMPOSE_PROJECT_NAME`| Stack namespace for containers / network / volumes (default: `wp_ols`) |
    | `DATABASENAME`        | Database name (must match `wp-config.php`) |
    | `DATABASEUSER`        | Database user                              |
    | `DATABASEPASS`        | Database password                          |
@@ -98,13 +100,17 @@ naming convention).
    | `OLS_ADMIN_USER`      | OLS WebAdmin username (default: `admin`)   |
    | `OLS_ADMIN_PASSWORD`  | OLS WebAdmin password (default: `P@ssw0rd`)|
 
-2. **Drop your WordPress files into `www/`** (or symlink / bind-mount them in).
+   Optional port overrides (defaults shown — only set these if the host
+   port is already in use):
 
-   The directory is bind-mounted to the image's default vhost docroot
-   (`/var/www/vhosts/localhost/html`), so no OLS configuration is required.
-
-3. **Start the stack:**
-
+   | Variable        | Default | Description                          |
+   | --------------- | ------- | ------------------------------------ |
+   | `HTTP_PORT`     | `80`    | Host port for HTTP                   |
+   | `HTTPS_PORT`    | `443`   | Host port for HTTPS                  |
+   | `WEBADMIN_PORT` | `7080`  | Host port for the OLS WebAdmin       |
+| `HTTP_PORT`           | Published HTTP port (default: `80`)         |
+| `HTTPS_PORT`         | Published HTTPS port (default: `443`)       |
+| `WEBADMIN_PORT`      | Published OLS WebAdmin port (default: `7080`)|
    ```bash
    docker compose up -d
    ```
@@ -305,17 +311,19 @@ docker compose exec database mysqldump \
 
 | Field                 | Default                  | Notes                                  |
 | --------------------- | ------------------------ | -------------------------------------- |
-| `80:80`, `443:443`    | published                | Public HTTP / HTTPS                    |
-| `7080:7080`           | **change to 127.0.0.1**  | WebAdmin — see "Hardening"             |
+| `${HTTP_PORT:-80}:80` | published                | Public HTTP — host port via `HTTP_PORT` env (default `80`) |
+| `${HTTPS_PORT:-443}:443` | published             | Public HTTPS — host port via `HTTPS_PORT` env (default `443`) |
+| `${WEBADMIN_PORT:-7080}:7080` | **change to 127.0.0.1** | WebAdmin — host port via `WEBADMIN_PORT` env (default `7080`); see "Hardening" |
 | `./www`               | bind mount               | WordPress docroot (`/var/www/vhosts/localhost/html` inside the container) |
 | `./logs`              | bind mount               | OLS logs (`/usr/local/lsws/logs` inside the container) |
-| `app-network`         | bridge network           | Internal service-to-service traffic    |
-| External volume       | `<project>_db_data`      | Holds MariaDB data, never managed by this repo |
+| `app-network`         | bridge network           | Internal service-to-service traffic — actual name `${COMPOSE_PROJECT_NAME:-wp_ols}_network` |
+| External volume       | `<COMPOSE_PROJECT_NAME>_db_data` | Holds MariaDB data, never managed by this repo |
 
 ### `.env`
 
 | Variable              | Description                                            |
 | --------------------- | ------------------------------------------------------ |
+| `COMPOSE_PROJECT_NAME`| Stack namespace used by Compose itself, plus all container, network, and volume names in this stack (default: `wp_ols`). Change it to run multiple copies of this stack on the same host without name collisions. |
 | `DATABASENAME`        | MariaDB database name (matches `wp-config.php`)        |
 | `DATABASEUSER`        | MariaDB user                                           |
 | `DATABASEPASS`        | MariaDB password                                       |
@@ -339,13 +347,71 @@ max_execution_time = 300
 
 ---
 
+## Running multiple stacks on one host
+
+`docker-compose.yml` uses the `COMPOSE_PROJECT_NAME` variable from `.env` to
+prefix **every** container, the bridge network, and every named volume in
+this stack. The default (`wp_ols`) produces these resource names:
+
+| Resource        | Name                              |
+| --------------- | ------------------------------------- |
+| App container   | `wp_ols_app`                        |
+| DB container    | `wp_ols_db`                         |
+| Network         | `wp_ols_network`                    |
+| Volume (DB)     | `wp_ols_db_data`                    |
+| Volume (OLS)    | `wp_ols_ls_conf`                    |
+| Volume (admin)  | `wp_ols_admin_conf`                 |
+
+To run a **second** copy of this stack on the same server (for a different
+site), just clone the repo into a second folder, change
+`COMPOSE_PROJECT_NAME` in **that** folder's `.env`, and bring it up. For
+example, a project in `~/projects/site-b` might set:
+
+```bash
+COMPOSE_PROJECT_NAME=siteB
+```
+
+That stack then owns `siteB_app`, `siteB_db`, `siteB_network`,
+`siteB_db_data`, `siteB_ls_conf`, and `siteB_admin_conf` — none of which
+collide with the `wp_ols_*` resources of the first stack.
+
+> ⚠️ **Note on host ports.** The stack still publishes `80`, `443`, and
+> `7080` on the host by default. Two stacks cannot both bind to the same
+> host port. If you run more than one stack on a single host, map the HTTP
+> / HTTPS / WebAdmin ports to different host ports for the second stack
+> (e.g. via the `HTTP_PORT`, `HTTPS_PORT`, and `WEBADMIN_PORT` env vars or
+> by editing `docker-compose.yml`).
+
+A few practical recipes:
+
+```bash
+# Stack A (existing) — uses the default COMPOSE_PROJECT_NAME=wp_ols
+cd ~/projects/wp_ols
+docker compose up -d
+
+# Stack B (new) — different namespace + different host ports
+cd ~/projects/site-b
+sed -i 's/^COMPOSE_PROJECT_NAME=.*/COMPOSE_PROJECT_NAME=siteB/' .env
+HTTP_PORT=8080 HTTPS_PORT=8443 WEBADMIN_PORT=7081 docker compose up -d
+```
+
+Down the line, all the usual commands respect the namespace too:
+
+```bash
+docker compose -p siteB ps
+docker compose -p siteB logs -f
+docker compose -p siteB down
+```
+
+---
+
 ## Troubleshooting
 
 ### `docker compose up` fails — "volume not found"
 
 The expected external volume does not exist. The default name is
-`<project-directory>_db_data` (where `<project-directory>` is the folder
-name that holds `docker-compose.yml`). Create one matching the value in
+`<COMPOSE_PROJECT_NAME>_db_data` (where `COMPOSE_PROJECT_NAME` comes from
+your `.env`, defaulting to `wp_ols`). Create one matching the value in
 `docker-compose.yml`, or bootstrap a fresh one:
 
 ```bash
@@ -353,7 +419,7 @@ name that holds `docker-compose.yml`). Create one matching the value in
 docker compose up -d
 
 # Or create it manually with the name expected by docker-compose.yml:
-docker volume create myproject_db_data
+docker volume create "${COMPOSE_PROJECT_NAME:-wp_ols}_db_data"
 docker compose up -d database
 # Then import your SQL dump:
 docker compose exec -T database mysql -u root -p"${MYSQL_ROOT_PASSWORD}" \
@@ -429,10 +495,11 @@ The image's docroot ships `wp-config-sample.php` only. Either:
 ## Recovery (if the DB volume is lost)
 
 Recreate the external volume with the name expected by `docker-compose.yml`
-(default: `<project-directory>_db_data`), then import your backup:
+(default: `${COMPOSE_PROJECT_NAME:-wp_ols}_db_data`), then import your
+backup:
 
 ```bash
-docker volume create $(basename "$PWD")_db_data
+docker volume create "${COMPOSE_PROJECT_NAME:-wp_ols}_db_data"
 docker compose up -d database
 
 docker compose exec -T database mysql -u root -p"${MYSQL_ROOT_PASSWORD}" \
