@@ -50,6 +50,6 @@ volumes:
   db_data:
     name: ${COMPOSE_PROJECT_NAME:-wp_ols}_db_data
   ols_conf:
-    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_ols_conf
+    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_conf
   ols_admin_conf:
-    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_ols_admin_conf
+    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_admin_conf
