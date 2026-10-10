@@ -15,10 +15,12 @@ services:
       - ./www:/var/www/vhosts/localhost/html
       - ./logs:/usr/local/lsws/logs
       # # Persist OLS config + admin htpasswd so settings survive container recreate
-      - ls_conf:/usr/local/lsws/conf
-      - admin_conf:/usr/local/lsws/admin/conf 
+      - ./ols/conf:/usr/local/lsws/conf
+      - ./ols/admin/conf:/usr/local/lsws/admin/conf
+      # Wrapper script that runs wp-cli as www-data (no --allow-root needed).
+      - ./ols/scripts/wp-wrapper.sh:/usr/local/bin/wp-wrapper.sh
     command: >
-      sh -c 'HASH=$$(openssl passwd -1 "$${ADMIN_PASSWORD}"); printf "$${ADMIN_USER}:$${HASH}\n" > /usr/local/lsws/admin/conf/htpasswd && chown lsadm:lsadm /usr/local/lsws/admin/conf/htpasswd && chmod 600 /usr/local/lsws/admin/conf/htpasswd && /entrypoint.sh'
+      sh -c 'HASH=$$(openssl passwd -1 "$${ADMIN_PASSWORD}"); printf "$${ADMIN_USER}:$${HASH}\n" > /usr/local/lsws/admin/conf/htpasswd && chown lsadm:lsadm /usr/local/lsws/admin/conf/htpasswd && chmod 600 /usr/local/lsws/admin/conf/htpasswd && chmod +x /usr/local/bin/wp-wrapper.sh && [ -e /usr/bin/wp.real ] || mv /usr/bin/wp /usr/bin/wp.real && ln -sf /usr/local/bin/wp-wrapper.sh /usr/bin/wp && chown -R www-data:www-data /var/www/vhosts/localhost/html && /entrypoint.sh'
     depends_on:
       - database
     networks:
@@ -47,7 +49,3 @@ networks:
 volumes:
   db_data:
     name: ${COMPOSE_PROJECT_NAME:-wp_ols}_db_data
-  ls_conf:
-    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_ls_conf
-  admin_conf:
-    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_admin_conf
