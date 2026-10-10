@@ -10,6 +10,10 @@ logs/*
 database/*
 !database/.gitkeep
 
+# Openlitespeed configuration files structures
+!ols/conf/.gitkeep
+!ols/admin/conf/.gitkeep
+
 # Secrets / local config
 .env
 *.bak
