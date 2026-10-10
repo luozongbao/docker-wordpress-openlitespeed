@@ -35,9 +35,23 @@ services:
       - MYSQL_DATABASE=${DATABASENAME}
       - MYSQL_USER=${DATABASEUSER}
       - MYSQL_PASSWORD=${DATABASEPASS}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-mysqlr00tP@ssw0rd}
     volumes:
       - db_data:/var/lib/mysql
+    networks:
+      - app-network
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    ports:
+      - ${PHPMYADMIN_PORT:-8080}:80
+    environment:
+      PMA_HOST: database
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysqlr00tP@ssw0rd}
+    depends_on:
+      - database
     networks:
       - app-network
 
