@@ -11,16 +11,23 @@ services:
       - TZ=Asia/Bangkok
       - ADMIN_USER=${OLS_ADMIN_USER:-admin}
       - ADMIN_PASSWORD=${OLS_ADMIN_PASSWORD:-P@ssw0rd}
+      # wp-wrapper.sh tunables — override per-environment in .env
+      - WP_PATH=${WP_PATH:-/var/www/vhosts/localhost/html}
+      - WP_USER=${WP_USER:-nobody}
+      - WP_GROUP=${WP_GROUP:-nogroup}
+      - WP_REAL=${WP_REAL:-/usr/bin/wp.real}
     volumes:
       - ./www:/var/www/vhosts/localhost/html
       - ./logs:/usr/local/lsws/logs
       # # Persist OLS config + admin htpasswd so settings survive container recreate
       - ols_conf:/usr/local/lsws/conf
       - ols_admin_conf:/usr/local/lsws/admin/conf
-      # Wrapper script that runs wp-cli as www-data (no --allow-root needed).
+      # Wrapper script that runs wp-cli as the OLS PHP worker (nobody:nogroup).
+      # Override WP_PATH / WP_USER / WP_GROUP via the environment block above
+      # when the host bind mount uses a different user or docroot.
       - ./ols/scripts/wp-wrapper.sh:/usr/local/bin/wp-wrapper.sh
     command: >
-      sh -c 'HASH=$$(openssl passwd -1 "$${ADMIN_PASSWORD}"); printf "$${ADMIN_USER}:$${HASH}\n" > /usr/local/lsws/admin/conf/htpasswd && chown lsadm:lsadm /usr/local/lsws/admin/conf/htpasswd && chmod 600 /usr/local/lsws/admin/conf/htpasswd && chmod +x /usr/local/bin/wp-wrapper.sh && [ -e /usr/bin/wp.real ] || mv /usr/bin/wp /usr/bin/wp.real && ln -sf /usr/local/bin/wp-wrapper.sh /usr/bin/wp && chown -R www-data:www-data /var/www/vhosts/localhost/html && /entrypoint.sh'
+      sh -c 'HASH=$$(openssl passwd -1 "$${ADMIN_PASSWORD}"); printf "$${ADMIN_USER}:$${HASH}\n" > /usr/local/lsws/admin/conf/htpasswd && chown lsadm:lsadm /usr/local/lsws/admin/conf/htpasswd && chmod 600 /usr/local/lsws/admin/conf/htpasswd && chmod +x /usr/local/bin/wp-wrapper.sh && [ -e /usr/bin/wp.real ] || mv /usr/bin/wp /usr/bin/wp.real && ln -sf /usr/local/bin/wp-wrapper.sh /usr/bin/wp && chown -R $${WP_USER}:$${WP_GROUP} /var/www/vhosts/localhost/html && /entrypoint.sh'
     depends_on:
       - database
     networks:
