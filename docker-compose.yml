@@ -15,8 +15,8 @@ services:
       - ./www:/var/www/vhosts/localhost/html
       - ./logs:/usr/local/lsws/logs
       # # Persist OLS config + admin htpasswd so settings survive container recreate
-      - ./ols/conf:/usr/local/lsws/conf
-      - ./ols/admin/conf:/usr/local/lsws/admin/conf
+      - ols_conf:/usr/local/lsws/conf
+      - ols_admin_conf:/usr/local/lsws/admin/conf
       # Wrapper script that runs wp-cli as www-data (no --allow-root needed).
       - ./ols/scripts/wp-wrapper.sh:/usr/local/bin/wp-wrapper.sh
     command: >
@@ -49,3 +49,7 @@ networks:
 volumes:
   db_data:
     name: ${COMPOSE_PROJECT_NAME:-wp_ols}_db_data
+  ols_conf:
+    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_ols_conf
+  ols_admin_conf:
+    name: ${COMPOSE_PROJECT_NAME:-wp_ols}_ols_admin_conf
